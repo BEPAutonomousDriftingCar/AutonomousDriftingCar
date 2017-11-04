@@ -1,167 +1,68 @@
-/*
-Basic_SPI.ino
-Brian R Taylor
-brian.taylor@bolderflight.com
-2016-10-10 
+/* Dynamixel ReadWrite
+ 
+ Reads an dynaixel current position, and set goal position
+ turn left and right repeatly.
+ 
+                 Compatibility
+ CM900                  O
+ OpenCM9.04             O
+ 
+                Dynamixel Compatibility
+               AX    MX      RX    XL-320    Pro
+ CM900          O      O      O        O      X
+ OpenCM9.04     O      O      O        O      X
+ **** OpenCM 485 EXP board is needed to use 4 pin Dynamixel and Pro Series ****  
+ 
+ created 16 Nov 2012
+ by ROBOTIS CO,.LTD.
+ */
+/* Serial device defines for dxl bus */
+#define DXL_BUS_SERIAL1 1  //Dynamixel on Serial1(USART1)  <-OpenCM9.04
+#define DXL_BUS_SERIAL2 2  //Dynamixel on Serial2(USART2)  <-LN101,BT210
+#define DXL_BUS_SERIAL3 3  //Dynamixel on Serial3(USART3)  <-OpenCM 485EXP
 
-Copyright (c) 2016 Bolder Flight Systems
+/* Dynamixel ID defines */
+#define ID_NUM  1
+/* Control table defines */
+#define GOAL_POSITION 30
+#define MOVING 46
+#define XL_MOVING 49
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
-and associated documentation files (the "Software"), to deal in the Software without restriction, 
-including without limitation the rights to use, copy, modify, merge, publish, distribute, 
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is 
-furnished to do so, subject to the following conditions:
+#include "Dynamixel.h"
 
-The above copyright notice and this permission notice shall be included in all copies or 
-substantial portions of the Software.
+Dynamixel Dxl(DXL_BUS_SERIAL1);
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING 
-BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-#include "MPU9250.h"
-
-// an MPU9250 object with the MPU-9250 sensor on Teensy Chip Select pin 10
-MPU9250 IMU(10);
-
-float ax, ay, az, gx, gy, gz, hx, hy, hz, t;
-int beginStatus;
+byte isMoving = 0;
+int goalPosition = 0;
 
 void setup() {
-  // serial to display data
-  Serial.begin(115200);
-
-  // start communication with IMU and 
-  // set the accelerometer and gyro ranges.
-  // ACCELEROMETER 2G 4G 8G 16G
-  // GYRO 250DPS 500DPS 1000DPS 2000DPS
-  beginStatus = IMU.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
+  // Dynamixel 2.0 Protocol -> 0: 9600, 1: 57600, 2: 115200, 3: 1Mbps 
+  Dxl.begin(3);
+  
+  Dxl.jointMode(ID_NUM); //jointMode() is to use position mode
 }
 
 void loop() {
-  if(beginStatus < 0) {
-    delay(1000);
-    Serial.println("IMU initialization unsuccessful");
-    Serial.println("Check IMU wiring or try cycling power");
-    delay(10000);
+  //Check if ID 1 dynamixel is still moving, 46 is moving control address
+  //Please refer ROBOTIS support page
+  
+  //AX MX RX Series
+  isMoving = Dxl.readByte(ID_NUM, MOVING);
+  
+  //XL320
+  //isMoving = Dxl.readByte(ID_NUM, XL_MOVING);
+  
+  //Check if the last communication is successful
+  if( isMoving == 0 ){ //if ID 1 dynamixel is stopped
+  
+    //Send instruction packet to move for goalPosition( control address is 30 )
+    //Compatible with all dynamixel serise
+    Dxl.writeWord(ID_NUM, GOAL_POSITION, goalPosition );
+    //toggle the position if goalPosition is 1000, set to 0, if 0, set to 1000
+    if(goalPosition == 1000)
+      goalPosition = 0;
+    else
+      goalPosition = 1000;
   }
-  else{
-    /* get the individual data sources */
-    /* This approach is only recommended if you only
-     *  would like the specified data source (i.e. only
-     *  want accel data) since multiple data sources
-     *  would have a time skew between them.
-     */
-    // get the accelerometer data (m/s/s)
-    IMU.getAccel(&ax, &ay, &az);
-  
-    // get the gyro data (rad/s)
-    IMU.getGyro(&gx, &gy, &gz);
-  
-    // get the magnetometer data (uT)
-    IMU.getMag(&hx, &hy, &hz);
-  
-    // get the temperature data (C)
-    IMU.getTemp(&t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    /* get multiple data sources */
-    /* In this approach we get data from multiple data
-     *  sources (i.e. both gyro and accel). This is 
-     *  the recommended approach since there is no time
-     *  skew between sources - they are all synced.
-     *  Demonstrated are:
-     *  1. getMotion6: accel + gyro
-     *  2. getMotion7: accel + gyro + temp
-     *  3. getMotion9: accel + gyro + mag
-     *  4. getMotion10: accel + gyro + mag + temp
-     */
-  
-     /* getMotion6 */
-    // get both the accel (m/s/s) and gyro (rad/s) data
-    IMU.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  
-    // get the magnetometer data (uT)
-    IMU.getMag(&hx, &hy, &hz);
-  
-    // get the temperature data (C)
-    IMU.getTemp(&t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    /* getMotion7 */
-    // get the accel (m/s/s), gyro (rad/s), and temperature (C) data
-    IMU.getMotion7(&ax, &ay, &az, &gx, &gy, &gz, &t);
-    
-    // get the magnetometer data (uT)
-    IMU.getMag(&hx, &hy, &hz);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    /* getMotion9 */
-    // get the accel (m/s/s), gyro (rad/s), and magnetometer (uT) data
-    IMU.getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &hx, &hy, &hz);
-  
-    // get the temperature data (C)
-    IMU.getTemp(&t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    // get the accel (m/s/s), gyro (rad/s), and magnetometer (uT), and temperature (C) data
-    IMU.getMotion10(&ax, &ay, &az, &gx, &gy, &gz, &hx, &hy, &hz, &t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  }
-}
-
-void printData(){
-
-  // print the data
-  Serial.print(ax,6);
-  Serial.print("\t");
-  Serial.print(ay,6);
-  Serial.print("\t");
-  Serial.print(az,6);
-  Serial.print("\t");
-
-  Serial.print(gx,6);
-  Serial.print("\t");
-  Serial.print(gy,6);
-  Serial.print("\t");
-  Serial.print(gz,6);
-  Serial.print("\t");
-
-  Serial.print(hx,6);
-  Serial.print("\t");
-  Serial.print(hy,6);
-  Serial.print("\t");
-  Serial.print(hz,6);
-  Serial.print("\t");
-
-  Serial.println(t,6);
 }
 

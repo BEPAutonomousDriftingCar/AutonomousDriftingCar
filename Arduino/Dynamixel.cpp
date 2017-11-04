@@ -6,8 +6,8 @@
  */
 
 #include "Dynamixel.h"
-#include "nvic.h"
-#include "Arduino-compatibles.h"
+//#include "nvic.h"
+//#include "Arduino-compatibles.h"
 #include "dxl.h"
 
 Dynamixel::Dynamixel(int dev_num) {

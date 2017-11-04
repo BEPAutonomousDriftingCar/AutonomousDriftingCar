@@ -7,11 +7,12 @@
 
 #ifndef DXL2_H_
 #define DXL2_H_
+#include "HardwareSerial.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "usart.h"
-#include "gpio.h"
+
+#include "libpandora_types.h"
 #include "dxl_constants.h"
 
 

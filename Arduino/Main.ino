@@ -1,167 +1,50 @@
-/*
-Basic_SPI.ino
-Brian R Taylor
-brian.taylor@bolderflight.com
-2016-10-10 
+int FTM1CountOVFlow;
+int FTM1Ch0CountValue;
+int rpm;
 
-Copyright (c) 2016 Bolder Flight Systems
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
-and associated documentation files (the "Software"), to deal in the Software without restriction, 
-including without limitation the rights to use, copy, modify, merge, publish, distribute, 
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is 
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or 
-substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING 
-BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-#include "MPU9250.h"
-
-// an MPU9250 object with the MPU-9250 sensor on Teensy Chip Select pin 10
-MPU9250 IMU(10);
-
-float ax, ay, az, gx, gy, gz, hx, hy, hz, t;
-int beginStatus;
-
+//(1) Setup statements
 void setup() {
-  // serial to display data
-  Serial.begin(115200);
+//configure Flextimer 1
+FTM1_MODE = 0x05; //set write-protect disable (WPDIS) bit to modify other registers
+//FAULTIE=0, FAULTM=00, CAPTEST=0, PWMSYNC=0, WPDIS=1, INIT=0, FTMEN=1(no restriction FTM)
+FTM1_SC = 0x00; //set status/control to zero = disable all internal clock sources
+FTM1_CNT = 0x0000; //reset count to zero
+FTM1_MOD = 9999; //max modulus = 9999 (gives count = 10000 on roll-over) 
 
-  // start communication with IMU and 
-  // set the accelerometer and gyro ranges.
-  // ACCELEROMETER 2G 4G 8G 16G
-  // GYRO 250DPS 500DPS 1000DPS 2000DPS
-  beginStatus = IMU.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
+//enable FTM1 interrupt within NVIC table
+NVIC_ENABLE_IRQ(IRQ_FTM1);
+
+//configure Teensy port pins
+PORTA_PCR12 |= 0x700; //MUX = alternative function 7 on Chip Pin 28 (FTM1_QD_PHA) = Teensy Pin 3
+PORTA_PCR13 |= 0x700; //MUX = alternative function 7 on Chip Pin 29 (FTM1_QD_PHB) = Teensy Pin 4
+
+//set flextimer quad decode mode and enable overflow interrupt
+FTM1_QDCTRL = 0x0F; //see section 36.3.21 of ref manual for details
+FTM1_SC = 0x40; // (Note – FTM1_SC [TOF=0 TOIE=1 CPWMS=0 CLKS=00 (internal clocks disabled) PS=000 [no prescale divide])
+
+//Set up serial connection to computer
+ Serial.begin(115200);
+ Serial.println(FTM1Ch0CountValue);
+ Serial.println("All set up, lets begin");
+ pinMode(13, OUTPUT);
+ digitalWrite(13, HIGH);
 }
 
+//(2) ISR routine for FlexTimer1 Module
+extern "C" void ftm1_isr(void) {
+if ((FTM1_SC & FTM_SC_TOF) != 0) { //read the timer overflow flag (TOF in FTM1_SC)
+FTM1_SC &= ~FTM_SC_TOF; //if set, clear overflow flag
+}
+FTM1CountOVFlow++; //increment overflow counter
+}
+
+//(3) main loop statements
 void loop() {
-  if(beginStatus < 0) {
-    delay(1000);
-    Serial.println("IMU initialization unsuccessful");
-    Serial.println("Check IMU wiring or try cycling power");
-    delay(10000);
-  }
-  else{
-    /* get the individual data sources */
-    /* This approach is only recommended if you only
-     *  would like the specified data source (i.e. only
-     *  want accel data) since multiple data sources
-     *  would have a time skew between them.
-     */
-    // get the accelerometer data (m/s/s)
-    IMU.getAccel(&ax, &ay, &az);
-  
-    // get the gyro data (rad/s)
-    IMU.getGyro(&gx, &gy, &gz);
-  
-    // get the magnetometer data (uT)
-    IMU.getMag(&hx, &hy, &hz);
-  
-    // get the temperature data (C)
-    IMU.getTemp(&t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    /* get multiple data sources */
-    /* In this approach we get data from multiple data
-     *  sources (i.e. both gyro and accel). This is 
-     *  the recommended approach since there is no time
-     *  skew between sources - they are all synced.
-     *  Demonstrated are:
-     *  1. getMotion6: accel + gyro
-     *  2. getMotion7: accel + gyro + temp
-     *  3. getMotion9: accel + gyro + mag
-     *  4. getMotion10: accel + gyro + mag + temp
-     */
-  
-     /* getMotion6 */
-    // get both the accel (m/s/s) and gyro (rad/s) data
-    IMU.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  
-    // get the magnetometer data (uT)
-    IMU.getMag(&hx, &hy, &hz);
-  
-    // get the temperature data (C)
-    IMU.getTemp(&t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    /* getMotion7 */
-    // get the accel (m/s/s), gyro (rad/s), and temperature (C) data
-    IMU.getMotion7(&ax, &ay, &az, &gx, &gy, &gz, &t);
-    
-    // get the magnetometer data (uT)
-    IMU.getMag(&hx, &hy, &hz);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    /* getMotion9 */
-    // get the accel (m/s/s), gyro (rad/s), and magnetometer (uT) data
-    IMU.getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &hx, &hy, &hz);
-  
-    // get the temperature data (C)
-    IMU.getTemp(&t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  
-    // get the accel (m/s/s), gyro (rad/s), and magnetometer (uT), and temperature (C) data
-    IMU.getMotion10(&ax, &ay, &az, &gx, &gy, &gz, &hx, &hy, &hz, &t);
-  
-    // print the data
-    printData();
-  
-    // delay a frame
-    delay(50);
-  }
+//read FTM1 Ch0 value if valid
+FTM1Ch0CountValue = FTM1_CNT; //read CH0 value
+rpm =analogRead(9)*3300/1024;
+Serial.print(FTM1Ch0CountValue);
+Serial.print(" ");
+Serial.println(rpm);
+delay(499);
 }
-
-void printData(){
-
-  // print the data
-  Serial.print(ax,6);
-  Serial.print("\t");
-  Serial.print(ay,6);
-  Serial.print("\t");
-  Serial.print(az,6);
-  Serial.print("\t");
-
-  Serial.print(gx,6);
-  Serial.print("\t");
-  Serial.print(gy,6);
-  Serial.print("\t");
-  Serial.print(gz,6);
-  Serial.print("\t");
-
-  Serial.print(hx,6);
-  Serial.print("\t");
-  Serial.print(hy,6);
-  Serial.print("\t");
-  Serial.print(hz,6);
-  Serial.print("\t");
-
-  Serial.println(t,6);
-}
-

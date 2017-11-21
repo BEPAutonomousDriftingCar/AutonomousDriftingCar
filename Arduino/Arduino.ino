@@ -16,7 +16,7 @@ void setup() {
 
  
 	RevCounter.begin();
- Serial.println(TPM1_SC);
+ delay(500);
 
 pinMode(13, OUTPUT);
 digitalWrite(13, HIGH);
@@ -32,13 +32,13 @@ void loop() {
 //read FTM1 Ch0 value if valid
 FTM1Ch0CountValue = FTM1_CNT; //read CH0 value
 //rpm =analogRead(9)*3300/1024;
-Serial.print(FTM1_CNT);
+Serial.print(RevCounter.readCounter(0));
 Serial.print(" ");
-Serial.print(FTM2_CNT);
+Serial.print(RevCounter.readCounter(1));
 Serial.print(" ");
-Serial.print(TPM1_CNT);
+Serial.print(RevCounter.readCounter(2));
 Serial.print(" ");
-Serial.println(TPM2_CNT);
+Serial.println(RevCounter.readCounter(3));
 //Serial.print(" ");
 //Serial.println(rpm);
 delay(499);

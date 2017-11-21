@@ -30,6 +30,9 @@ class RevCounter{
 	public:
 		RevCounter();
 		void begin();
+    	int readCounter(int counter);
+    private:
+    	bool overflowState(int counter);
 };
 
 

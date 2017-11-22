@@ -8,10 +8,10 @@ RevCounter RevCounter;
 
 //(1) Setup statements
 void setup() {
-  //Set up serial connection to computer
- Serial.begin(9600);
+  //Set up Serial2 connection to computer
+ Serial2.begin(9600);
  delay(500);
- Serial.println("All set up, lets begin");
+ Serial2.println("All set up, lets begin");
 
 
  
@@ -32,14 +32,14 @@ void loop() {
 //read FTM1 Ch0 value if valid
 FTM1Ch0CountValue = FTM1_CNT; //read CH0 value
 //rpm =analogRead(9)*3300/1024;
-Serial.print(RevCounter.readCounter(0));
-Serial.print(" ");
-Serial.print(RevCounter.readCounter(1));
-Serial.print(" ");
-Serial.print(RevCounter.readCounter(2));
-Serial.print(" ");
-Serial.println(RevCounter.readCounter(3));
-//Serial.print(" ");
-//Serial.println(rpm);
+Serial2.print(RevCounter.readCounter(0));
+Serial2.print(" ");
+Serial2.print(RevCounter.readCounter(1));
+Serial2.print(" ");
+Serial2.print(RevCounter.readCounter(2));
+Serial2.print(" ");
+Serial2.println(RevCounter.readCounter(3));
+//Serial2.print(" ");
+//Serial2.println(rpm);
 delay(499);
 }

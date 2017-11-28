@@ -109,6 +109,7 @@ void setup(){
   mag_msg.magnetic_field_covariance[1] = 0;
   mag_msg.magnetic_field_covariance[2] = 0;
 
+
   mag_msg.magnetic_field_covariance[3] = 0;
   mag_msg.magnetic_field_covariance[4] = 0;
   mag_msg.magnetic_field_covariance[5] = 0;
@@ -116,6 +117,7 @@ void setup(){
   mag_msg.magnetic_field_covariance[6] = 0;
   mag_msg.magnetic_field_covariance[7] = 0;
   mag_msg.magnetic_field_covariance[8] = 0;
+
 
   imu_msg.header.seq = 0;
   imu_msg.header.stamp = nh.now();
@@ -218,6 +220,7 @@ void loop(){
   nh.spinOnce();
   delay(1);
 }
+
 
 // Arduino 'map' funtion for floating point
 double fmap (double toMap, double in_min, double in_max, double out_min, double out_max) {

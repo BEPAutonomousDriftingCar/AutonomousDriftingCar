@@ -17,7 +17,7 @@
 // These are general bounds for the steering servo and the
 // TRAXXAS Electronic Speed Controller (ESC)
 const int minSteering = 55 ;
-const int maxSteering = 135 ;
+const int maxSteering = 125 ;
 const int minThrottle = 1000 ;
 const int maxThrottle = 2000 ;
 

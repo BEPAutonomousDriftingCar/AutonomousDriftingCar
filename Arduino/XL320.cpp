@@ -30,17 +30,17 @@
 void enableTX()
 {
 	uint8_t c;
-	c = UART1_C3;
+	c = UART2_C3;
 	c |= UART_C3_TXDIR;
-	UART1_C3 = c;
+	UART2_C3 = c;
 }
 
 void enableRX()
 {
 	uint8_t c;
-	c = UART1_C3;
+	c = UART2_C3;
 	c &= ~UART_C3_TXDIR;
-	UART1_C3 = c;
+	UART2_C3 = c;
 }
 
 void XL320::Begin(Stream &stream)

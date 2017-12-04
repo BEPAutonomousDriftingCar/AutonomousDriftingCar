@@ -17,7 +17,7 @@
 // These are general bounds for the steering servo and the
 // TRAXXAS Electronic Speed Controller (ESC)
 const int minSteering = 55 ;
-const int maxSteering = 135 ;
+const int maxSteering = 125 ;
 const int minThrottle = 1000 ;
 const int maxThrottle = 2000 ;
 
@@ -31,7 +31,7 @@ const float pi = 3.14159265359;
 ros::NodeHandle  nh;
 
 geometry_msgs::TransformStamped t;
-tf::TransformBroadcaster broadcaster;
+ros::Publisher wheels("wheels",&t);
 
 char base_link[] = "/base_link";
 char odom[] = "/odom";
@@ -91,7 +91,7 @@ void setup(){
   nh.initNode();
   nh.advertise(pub);
   nh.advertise(magpub);
-  broadcaster.init(nh);
+  nh.advertise(wheels);
   
   RevCounter.begin();
 
@@ -110,6 +110,7 @@ void setup(){
   mag_msg.magnetic_field_covariance[1] = 0;
   mag_msg.magnetic_field_covariance[2] = 0;
 
+
   mag_msg.magnetic_field_covariance[3] = 0;
   mag_msg.magnetic_field_covariance[4] = 0;
   mag_msg.magnetic_field_covariance[5] = 0;
@@ -117,6 +118,7 @@ void setup(){
   mag_msg.magnetic_field_covariance[6] = 0;
   mag_msg.magnetic_field_covariance[7] = 0;
   mag_msg.magnetic_field_covariance[8] = 0;
+
 
   imu_msg.header.seq = 0;
   imu_msg.header.stamp = nh.now();
@@ -212,7 +214,7 @@ void loop(){
   
     pub.publish(&imu_msg);
     magpub.publish(&mag_msg);
-    broadcaster.sendTransform(t);
+    wheels.publish(&t);
   }
   if(nh.connected() == false){
     electronicSpeedController.write(1490);
@@ -220,6 +222,7 @@ void loop(){
   nh.spinOnce();
   delayMicroseconds(50);
 }
+
 
 // Arduino 'map' funtion for floating point
 double fmap (double toMap, double in_min, double in_max, double out_min, double out_max) {

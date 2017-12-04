@@ -37,7 +37,7 @@ char base_link[] = "/base_link";
 char odom[] = "/odom";
 char frame_id[] = "imu";
 double lastTime, nowTime;
-double samplePeriod = 0.010;
+double samplePeriod = 0.049;
 sensor_msgs::Imu imu_msg;
 sensor_msgs::MagneticField mag_msg;
 ros::Publisher pub("imu/data_raw", &imu_msg);
@@ -100,6 +100,7 @@ void setup(){
   // ACCELEROMETER 2G 4G 8G 16G
   // GYRO 250DPS 500DPS 1000DPS 2000DPS
   beginStatus = IMU.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
+  IMU.setFilt(DLPF_BANDWIDTH_92HZ,4);
 
   mag_msg.header.seq = 0;
   mag_msg.header.stamp = nh.now();
@@ -172,6 +173,7 @@ void setup(){
 void loop(){
   nowTime=nh.now().toSec();
   if(nowTime-lastTime >= samplePeriod){
+    lastTime=nh.now().toSec();
     IMU.getMotion9(&ax, &ay, &az, &gx, &gy, &gz, &hx, &hy, &hz);
   
     imu_msg.header.seq++;
@@ -206,17 +208,17 @@ void loop(){
     t.transform.rotation.w = RevCounter.readCounter(3)*pi;  
     
     t.header.stamp = nh.now();
+    t.header.seq++;
   
     pub.publish(&imu_msg);
     magpub.publish(&mag_msg);
     broadcaster.sendTransform(t);
-    lastTime=nh.now().toSec();
   }
   if(nh.connected() == false){
     electronicSpeedController.write(1490);
   }
   nh.spinOnce();
-  delay(1);
+  delayMicroseconds(50);
 }
 
 // Arduino 'map' funtion for floating point

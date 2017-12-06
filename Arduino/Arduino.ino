@@ -14,6 +14,7 @@
 #include <geometry_msgs/Twist.h>
 #include "XL320.h"
 #include "SoftwareSerial.h"
+#include "TimerFour.h"
  
 int curPos,goal;
 SoftwareSerial SerialUart3(7, 8); // (RX, TX)
@@ -38,7 +39,7 @@ const int maxSteering = 125 ;
 const int minThrottle = 1000 ;
 const int maxThrottle = 2000 ;
 
-Servo electronicSpeedController ;  // The ESC works like a Servo
+Servo electronicSpeedController;  // The ESC works like a Servo
 
 RevCounter RevCounter;
 const float pi = 3.14159265359;
@@ -46,14 +47,14 @@ const float pi = 3.14159265359;
 ros::NodeHandle  nh;
 
 geometry_msgs::TransformStamped t, RL, RR, FL, FR;
-int pulsesRL, puslesRR, pulsesFL, pulsesFR;
+int pulsesRL, pulsesRR, pulsesFL, pulsesFR;
 ros::Publisher wheels("wheels",&t);
 
 //initialize IMU message types and required strings
 char base_link[] = "/base_link";
 char odom[] = "/world";
 char frame_id[] = "imu";
-std::int sampleFrequency;
+int sampleFrequency;
 float samplePeriod; 
 sensor_msgs::Imu imu_msg;
 sensor_msgs::MagneticField mag_msg;
@@ -67,10 +68,8 @@ void BuildMessages();
 MPU9250 IMU(10);
 float Aax, Aay, Aaz, Agx, Agy, Agz, Ahx, Ahy, Ahz, Bax, Bay, Baz, Bgx, Bgy, Bgz, Bhx, Bhy, Bhz;
 int beginStatus;
-bool usingData = false;
+bool toggleData = false;
 bool useB = false;
-
-ros::Timer timer = nh.createTimer(ros::Duration(samplePeriod), publishCallback);
 
 //initialize variables for receiving drive messages and converting them to driving signals
 void driveCallback ( const geometry_msgs::Twist&  twistMsg );
@@ -79,10 +78,13 @@ int escCommand, steeringAngle;
 
 void setup(){
   nh.initNode();
-  if (!nh.get_param("sample_frequency", sampleFrequency)) {
+  while(!nh.connected()) {nh.spinOnce();}
+  
+  if (! nh.getParam("rate", &sampleFrequency)) {
     sampleFrequency = 200;
-    nh.set_param("sample_frequency", sampleFrequency);
 }
+  //Timer4.initialize(sampleFrequency*1000000);
+  //Timer4.attachInterrupt(publishCallback);
 
   nh.advertise(pub);
   nh.advertise(magpub);
@@ -108,15 +110,17 @@ void setup(){
   electronicSpeedController.attach(9); // ESC is on pin 10
   // Initialize Steering and ESC setting
   // Steering centered is 90, throttle at neutral is 90
-  steeringServo.write(90) ;
+  //steeringServo.write(90) ;
   electronicSpeedController.writeMicroseconds(1500) ;
   delay(1000);
-  lastTime = nh.now().toSec();
+}
 
 
 void loop(){
-  nh.spin();
-  electronicSpeedController.write(1490);
+  nh.spinOnce();
+  if(!nh.connected()){
+    electronicSpeedController.write(1490);
+  }
 }
 
 
@@ -126,7 +130,7 @@ double fmap (double toMap, double in_min, double in_max, double out_min, double 
 }
 
 void IMUCallBack() {
-  if (usingData == false) {
+  if (toggleData == false) {
     NowA = nh.now();
     IMU.getMotion9(&Aax, &Aay, &Aaz, &Agx, &Agy, &Agz, &Ahx, &Ahy, &Ahz);
     useB = false;
@@ -217,7 +221,7 @@ void driveCallback (const geometry_msgs::Twist&  twistMsg )
   if (steeringAngle > maxSteering) {
     steeringAngle = maxSteering ;
   }
-  steeringServo.write(steeringAngle) ;
+  //steeringServo.write(steeringAngle) ;
   
   escCommand = (int)fmap(twistMsg.linear.x, -20.0, 20.0, minThrottle, maxThrottle) ;
   

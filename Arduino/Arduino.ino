@@ -44,7 +44,7 @@ Servo electronicSpeedController;  // The ESC works like a Servo
 RevCounter RevCounter;
 const float pi = 3.14159265359;
 
-ros::NodeHandle  nh;
+ros::NodeHandle_<ArduinoHardware, 6, 6, 2048, 2048> nh;
 
 geometry_msgs::TransformStamped t, RL, RR, FL, FR;
 int pulsesRL, pulsesRR, pulsesFL, pulsesFR;
@@ -78,20 +78,23 @@ int escCommand, steeringAngle;
 
 void setup(){
   nh.initNode();
-  while(!nh.connected()) {nh.spinOnce();}
-  
-  if (! nh.getParam("rate", &sampleFrequency)) {
-    sampleFrequency = 200;
-}
-  //Timer4.initialize(sampleFrequency*1000000);
-  //Timer4.attachInterrupt(publishCallback);
-
   nh.advertise(pub);
   nh.advertise(magpub);
   nh.advertise(wheels);
+  while(!nh.connected()) {nh.spinOnce();}
+  nh.loginfo("Connection established");
+  
+  if (! nh.getParam("rate", &sampleFrequency)) {
+    sampleFrequency = 200;
+  }
+  nh.loginfo("ROS parameters set");
+ 
+  nh.spinOnce();
+  nh.loginfo("Created topics");
   
   RevCounter.begin();
   DmInit();
+  
 
   // start communication with IMU and 
   // set the accelerometer and gyro ranges.
@@ -100,9 +103,11 @@ void setup(){
   beginStatus = IMU.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
   IMU.setFilt(DLPF_BANDWIDTH_92HZ,4);
   attachInterrupt(2,IMUCallBack,RISING);
+  nh.loginfo("IMU calibrated");
   
   //Build all the required messages with required covariances and frame id's
   BuildMessages();
+  nh.loginfo("Messages built");
 
   nh.subscribe(driveSubscriber) ;
   // Attach the servos to actual pins
@@ -112,7 +117,14 @@ void setup(){
   // Steering centered is 90, throttle at neutral is 90
   //steeringServo.write(90) ;
   electronicSpeedController.writeMicroseconds(1500) ;
+  nh.loginfo("Vehicle control started");
   delay(1000);
+
+
+
+  Timer4.initialize(1/sampleFrequency*1000000);
+  Timer4.attachInterrupt(publishCallback);
+  nh.loginfo("Publish timer initialized");
 }
 
 

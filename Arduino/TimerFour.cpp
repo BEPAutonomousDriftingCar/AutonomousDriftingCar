@@ -16,7 +16,7 @@
 
 #include "TimerFour.h"
 
-TimerFour Timer3;              // preinstatiate
+TimerFour Timer4;              // preinstatiate
 
 unsigned short TimerFour::pwmPeriod = 0;
 unsigned char TimerFour::clockSelectBits = 0;

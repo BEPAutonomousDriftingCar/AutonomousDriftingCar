@@ -2,7 +2,7 @@
 #include "XL320.h"
 #include "SoftwareSerial.h"
 
-int curPos,goal;
+int curPos,goal1, goal2;
 
 SoftwareSerial SerialUart3(7, 8); // (RX, TX)
 
@@ -12,9 +12,9 @@ SoftwareSerial SerialUart3(7, 8); // (RX, TX)
   {
 
     //init servo
-    SerialUart3.begin(9600);
+    //SerialUart3.begin(9600);
     //SerialUart3.begin(115200);
-    //SerialUart3.begin(1000000);
+    SerialUart3.begin(1000000);
     steering.Begin(SerialUart3);
 
     //configure Serial2 for servo
@@ -24,6 +24,8 @@ SoftwareSerial SerialUart3(7, 8); // (RX, TX)
   }
 
 void setup() {
+    goal1 = 430;
+    goal2 = 590;
     pinMode(13,OUTPUT);
     digitalWrite(13,HIGH);
     Serial.begin(9600);
@@ -36,13 +38,10 @@ void setup() {
 }
 
 void loop() {
-    steering.Write(1,XL320::Address::GOAL_POSITION,goal*32);
-    delay(100);
+    steering.Write(1,XL320::Address::GOAL_POSITION,goal1);
+    delay(2000);
     Serial.println(steering.GetValue(1,XL320::Address::PRESENT_POSITION));
-    if(goal*32<= 1023){
-      goal++;
-    }
-    else{
-      goal=0;
-    }
+    steering.Write(1,XL320::Address::GOAL_POSITION,goal2);
+    delay(2000);
+    Serial.println(steering.GetValue(1,XL320::Address::PRESENT_POSITION));  
 }

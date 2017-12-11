@@ -24,8 +24,8 @@ SoftwareSerial SerialUart3(7, 8); // (RX, TX)
   }
 
 void setup() {
-    goal1 = 430;
-    goal2 = 590;
+    goal1 = 422;
+    goal2 = 600;
     pinMode(13,OUTPUT);
     digitalWrite(13,HIGH);
     Serial.begin(9600);
@@ -40,8 +40,14 @@ void setup() {
 void loop() {
     steering.Write(1,XL320::Address::GOAL_POSITION,goal1);
     delay(2000);
+    Serial.print("Left steering angle is ");
     Serial.println(steering.GetValue(1,XL320::Address::PRESENT_POSITION));
+    Serial.print("Steering load is: ");
+    Serial.println(steering.GetValue(1,XL320::Address::PRESENT_LOAD));  
     steering.Write(1,XL320::Address::GOAL_POSITION,goal2);
     delay(2000);
-    Serial.println(steering.GetValue(1,XL320::Address::PRESENT_POSITION));  
+    Serial.print("Right steering angle is: ");
+    Serial.println(steering.GetValue(1,XL320::Address::PRESENT_POSITION));
+    Serial.print("Steering load is: ");
+    Serial.println(steering.GetValue(1,XL320::Address::PRESENT_LOAD)-1024);  
 }

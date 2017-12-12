@@ -35,8 +35,8 @@ void DmInit()
 
 // These are general bounds for the steering servo and the
 // Electronic Speed Controller (ESC)
-const int minSteering = 440 ;
-const int maxSteering = 592;
+const int minSteering = 422;
+const int maxSteering = 600;
 const int minThrottle = 1000 ;
 const int maxThrottle = 2000 ;
 
@@ -60,7 +60,7 @@ char odom[] = "/world";
 char frame_id[] = "imu";
 int sampleFrequency;
 float samplePeriod;
-bool ratebool;
+bool ratebool = false;
 sensor_msgs::Imu imu_msg;
 sensor_msgs::MagneticField mag_msg;
 ros::Publisher pub("imu/data_raw", &imu_msg);
@@ -244,24 +244,20 @@ void setup(){
   nh.loginfo("Connection established");
   ratebool = nh.getParam("rate", &sampleFrequency);
   if (!ratebool) {
-    sampleFrequency = 150;
-    nh.loginfo("Rate not set, automatically set to 150Hz");
+    sampleFrequency = 100;
+    nh.loginfo("Rate not set, automatically set to 100Hz");
   }
   else if (sampleFrequency >= 150){
-    sampleFrequency = 150;
-    nh.loginfo("Teensy is capped at 150hz, 150hz is set"); 
+    sampleFrequency = 100;
+    nh.loginfo("Teensy is capped at 100hz, 100hz is set"); 
   }
   else if (sampleFrequency <= 10){
     sampleFrequency = 10;
     nh.loginfo("Teensy minimum is capped at 10hz, 10hz is set"); 
   }
-  if(sampleFrequency >= 100){
-    dm_rate = 10;
-  }
-  else {
     dm_rate =(int)sampleFrequency/10;
     nh.loginfo("Dynamixel minimum is capped at 10hz, 10hz is set");
-  }
+  
   nh.loginfo("ROS parameters set");
   
   RevCounter.begin();
@@ -273,7 +269,7 @@ void setup(){
   // ACCELEROMETER 2G 4G 8G 16G
   // GYRO 250DPS 500DPS 1000DPS 2000DPS
   beginStatus = IMU.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
-  IMU.setFilt(DLPF_BANDWIDTH_5HZ,9);
+  IMU.setFilt(DLPF_BANDWIDTH_41HZ,9);
   pinMode(2,INPUT);
   attachInterrupt(2,IMUCallBack,RISING);
   nh.loginfo("IMU calibrated");

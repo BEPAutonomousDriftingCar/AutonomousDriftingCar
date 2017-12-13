@@ -30,22 +30,26 @@
 void enableTX()
 {
 	uint8_t c;
-	c = UART1_C3;
+	c = UART2_C3;
 	c |= UART_C3_TXDIR;
-	UART1_C3 = c;
+	UART2_C3 = c;
 }
 
 void enableRX()
 {
 	uint8_t c;
-	c = UART1_C3;
+	c = UART2_C3;
 	c &= ~UART_C3_TXDIR;
-	UART1_C3 = c;
+	UART2_C3 = c;
 }
 
 void XL320::Begin(Stream &stream)
 {
 	this->m_Stream = &stream;
+   //configure Serial2 for servo
+  UART2_C1 |= UART_C1_LOOPS | UART_C1_RSRC;
+  CORE_PIN8_CONFIG |= PORT_PCR_PE | PORT_PCR_PS; // pullup on output pin
+
 }
 
 

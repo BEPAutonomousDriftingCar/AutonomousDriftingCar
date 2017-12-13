@@ -18,21 +18,11 @@
 #include "TimerFour.h"
  
 int curPos,goal;
-SoftwareSerial SerialUart3(7, 8); // (RX, TX)
 XL320 steering;
-void DmInit()
-{
-  //init servo
-  //SerialUart3.begin(9600);
-  //SerialUart3.begin(115200);
-  SerialUart3.begin(1000000);
-  steering.Begin(SerialUart3);
 
-  //configure Serial2 for servo
-  UART2_C1 |= UART_C1_LOOPS | UART_C1_RSRC;
-  CORE_PIN8_CONFIG |= PORT_PCR_PE | PORT_PCR_PS; // pullup on output pin
-}
-
+int sampleFrequency;
+float samplePeriod;
+IntervalTimer dmTimer,pubTimer;
 // These are general bounds for the steering servo and the
 // Electronic Speed Controller (ESC)
 const int minSteering = 422;
@@ -45,7 +35,7 @@ Servo electronicSpeedController;  // The ESC works like a Servo
 RevCounter RevCounter;
 const float pi = 3.14159265359;
 
-ros::NodeHandle_<ArduinoHardware, 6, 6, 2048, 2048> nh;
+ros::NodeHandle_<ArduinoHardware, 6, 6, 4096*4, 4096*4> nh;
 geometry_msgs::QuaternionStamped w;
 geometry_msgs::TransformStamped RL, RR, FL, FR;
 geometry_msgs::QuaternionStamped s;
@@ -58,12 +48,9 @@ tf::TransformBroadcaster broadcaster;
 char base_link[] = "/base_link";
 char odom[] = "/world";
 char frame_id[] = "imu";
-int sampleFrequency;
-float samplePeriod;
-bool ratebool = false;
 sensor_msgs::Imu imu_msg;
 sensor_msgs::MagneticField mag_msg;
-ros::Publisher pub("imu/data_raw", &imu_msg);
+ros::Publisher imupub("imu/data_raw", &imu_msg);
 ros::Publisher magpub("imu/mag", &mag_msg);
 ros::Time NowA, NowB;
 void BuildMessages();
@@ -73,8 +60,8 @@ void BuildMessages();
 MPU9250 IMU(10);
 float Aax, Aay, Aaz, Agx, Agy, Agz, Ahx, Ahy, Ahz, Bax, Bay, Baz, Bgx, Bgy, Bgz, Bhx, Bhy, Bhz;
 int beginStatus;
-bool toggleData = false;
-bool useB = false;
+volatile bool toggleData = false;
+volatile bool useB = false;
 
 //initialize variables for receiving drive messages and converting them to driving signals
 //Callback for messages that steer the vehicle
@@ -190,25 +177,19 @@ void buildWMessage() {
   w.quaternion.y = pulsesRL*pi; 
   w.quaternion.z = pulsesFR*pi; 
   w.quaternion.w = pulsesFL*pi;  
-      
-  pub.publish(&imu_msg);
-  magpub.publish(&mag_msg);
-  wheels.publish(&w);
-  steer.publish(&s);
-
 }
   
 void publishCallback() {
   buildIMUMessage();
   buildWMessage(); 
-      
-  pub.publish(&imu_msg);
-  magpub.publish(&mag_msg);
-  wheels.publish(&w);
+
   steer.publish(&s);
+  wheels.publish(&w);
+  imupub.publish(&imu_msg);
+  magpub.publish(&mag_msg);
 }
 
-void BuildMessages() {
+void initMessages() {
   s.header.seq = 0;
   w.header.seq = 0;
 
@@ -221,47 +202,41 @@ void BuildMessages() {
   imu_msg.orientation_covariance[0] = -1;
 }
 
-int dm_flag, dm_rate;
+volatile int dm_flag;
+int dm_rate;
 void dmCom(){
   steering.Write(1,XL320::Address::GOAL_POSITION,steeringAngle);
   buildSMessage();
 }
 
-bool publish_flag;
-void publishCall() {
-  publish_flag = true;
-  dm_flag++;
+
+void getRate(){
+  sampleFrequency=0;
+  if (nh.getParam("rate", &sampleFrequency,1) == false) {
+    //default sample frequency
+    sampleFrequency = 120;
+    nh.loginfo("Rate not set, automatically set to 120Hz");
+  }
+  if (sampleFrequency > 1000){
+    sampleFrequency = 1000;
+    nh.loginfo("Teensy is capped at 1000hz, 1000hz is set"); 
+  }
+  nh.loginfo("ROS parameters set");
 }
 
 void setup(){
   nh.initNode();
-  nh.advertise(pub);
+  nh.advertise(imupub);
   nh.advertise(magpub);
   nh.advertise(wheels);
   nh.advertise(steer);
   nh.subscribe(driveSubscriber) ;
   while(!nh.connected()) {nh.spinOnce();}
   nh.loginfo("Connection established");
-  ratebool = nh.getParam("rate", &sampleFrequency);
-  if (!ratebool) {
-    sampleFrequency = 100;
-    nh.loginfo("Rate not set, automatically set to 100Hz");
-  }
-  else if (sampleFrequency >= 150){
-    sampleFrequency = 100;
-    nh.loginfo("Teensy is capped at 100hz, 100hz is set"); 
-  }
-  else if (sampleFrequency <= 10){
-    sampleFrequency = 10;
-    nh.loginfo("Teensy minimum is capped at 10hz, 10hz is set"); 
-  }
-    dm_rate =(int)sampleFrequency/10;
-    nh.loginfo("Dynamixel minimum is capped at 10hz, 10hz is set");
-  
-  nh.loginfo("ROS parameters set");
+
+  getRate();
   
   RevCounter.begin();
-  DmInit();
   
 
   // start communication with IMU and 
@@ -275,37 +250,44 @@ void setup(){
   nh.loginfo("IMU calibrated");
   
   //Build all the required messages with required covariances and frame id's
-  BuildMessages();
+  initMessages();
   nh.loginfo("Messages built");
 
   // Attach the servos to actual pins
-
+  //init servo
+  //SerialUart3.begin(9600);
+  //SerialUart3.begin(115200);
+  Serial3.begin(1000000);
+  steering.Begin(Serial3);
   electronicSpeedController.attach(9); // ESC is on pin 10
   // Initialize Steering and ESC setting
   steeringAngle = 511;
   electronicSpeedController.writeMicroseconds(1500) ;
   nh.loginfo("vehicle control started");
   delay(1000);
-
-  Timer4.initialize((int)2000000/sampleFrequency);
-  Timer4.attachInterrupt(publishCall);
+  
+  dmTimer.priority(255);
+  pubTimer.priority(140);
+  dmTimer.begin(dmCom,100000);
+  pubTimer.begin(publishCallback,(int)(1000000/sampleFrequency));
+  
   nh.loginfo("Publish timer initialized");
 }
 
 void loop(){
 
-  if(publish_flag) {
-    publish_flag = false;
-    if(dm_flag >= dm_rate){
-        dm_flag = 0;
-        dmCom();
-    }
-    publishCallback();
-  }
   nh.spinOnce();
   if(!nh.connected()){
     electronicSpeedController.write(1490);
-    setup();
+    dmTimer.end();
+    pubTimer.end();
+    nh.initNode();
+    while(!nh.connected()) {nh.spinOnce();}
+    nh.loginfo("Connection established");
+    getRate();
+    dmTimer.begin(dmCom,100000);
+    pubTimer.begin(publishCallback,(int)(1000000/sampleFrequency));
+    nh.loginfo("Publish timer Reset");
   }
 }
 

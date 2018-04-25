@@ -2,11 +2,9 @@
 #include <ros.h>
 #include <ros/time.h>
 #include <tf/transform_broadcaster.h>
-#include <ros.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/MagneticField.h>
+#include <donutdevice/Donut.h>
 #include "MPU9250.h"
-#include <Servo.h> 
+#include <Servo.h>
 #include <std_msgs/UInt16.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Int32.h>
@@ -16,7 +14,7 @@
 #include "XL320.h"
 #include "SoftwareSerial.h"
 #include "TimerFour.h"
- 
+
 int curPos,goal;
 XL320 steering;
 
@@ -36,22 +34,14 @@ RevCounter RevCounter;
 const float pi = 3.14159265359;
 
 ros::NodeHandle_<ArduinoHardware, 6, 6, 4096*4, 4096*4> nh;
-geometry_msgs::QuaternionStamped w;
-geometry_msgs::TransformStamped RL, RR, FL, FR;
-geometry_msgs::QuaternionStamped s;
 int pulsesRL, pulsesRR, pulsesFL, pulsesFR;
-ros::Publisher wheels("wheels",&w);
-ros::Publisher steer("steer",&s);
-tf::TransformBroadcaster broadcaster;
 
 //initialize IMU message types and required strings
 char base_link[] = "/base_link";
 char odom[] = "/world";
 char frame_id[] = "imu";
-sensor_msgs::Imu imu_msg;
-sensor_msgs::MagneticField mag_msg;
-ros::Publisher imupub("imu/data_raw", &imu_msg);
-ros::Publisher magpub("imu/mag", &mag_msg);
+donutdevice::Donut donut_msg;
+ros::Publisher donutpub("donut", &donut_msg);
 ros::Time NowA, NowB;
 void BuildMessages();
 
@@ -75,20 +65,20 @@ int escCommand, steeringAngle;
 void driveCallback (const geometry_msgs::Twist&  twistMsg )
 {
   steeringAngle = (int)fmap(twistMsg.angular.z, 1.0, -1.0, minSteering, maxSteering) ;
-  
+
   // Check to make sure steeringAngle is within car range
-  if (steeringAngle < minSteering) { 
+  if (steeringAngle < minSteering) {
     steeringAngle = minSteering;
   }
   if (steeringAngle > maxSteering) {
     steeringAngle = maxSteering ;
   }
 
-  
+
   escCommand = (int)fmap(twistMsg.linear.x, -20.0, 20.0, minThrottle, maxThrottle) ;
-  
+
   // Check to make sure throttle command is within bounds
-  if (escCommand < minThrottle) { 
+  if (escCommand < minThrottle) {
     escCommand = minThrottle;
   }
   if (escCommand > maxThrottle) {
@@ -96,7 +86,7 @@ void driveCallback (const geometry_msgs::Twist&  twistMsg )
   }
 
   electronicSpeedController.writeMicroseconds(escCommand);
-} 
+}
 
 ros::Subscriber<geometry_msgs::Twist> driveSubscriber("/cmd_vel", &driveCallback) ;
 
@@ -112,94 +102,78 @@ void IMUCallBack() {
     useB = true;
   }
 }
-void buildIMUMessage() {
+void buildMessage() {
     if (useB) {
     toggleData = false;
-    imu_msg.header.seq++;
-    imu_msg.header.stamp = NowB;
-    
-    imu_msg.linear_acceleration.x = Bax;
-    imu_msg.linear_acceleration.y = Bay;
-    imu_msg.linear_acceleration.z = Baz;
+    donut_msg.mpu.header.seq++;
+    donut_msg.mpu.header.stamp = NowB;
 
-    imu_msg.angular_velocity.x = Bgx;
-    imu_msg.angular_velocity.y = Bgy;
-    imu_msg.angular_velocity.z = Bgz;
+    donut_msg.mpu.linear_acceleration.x = Bax;
+    donut_msg.mpu.linear_acceleration.y = Bay;
+    donut_msg.mpu.linear_acceleration.z = Baz;
 
-    mag_msg.header.seq++;
-    mag_msg.header.stamp = imu_msg.header.stamp;
-    
-    mag_msg.magnetic_field.x = Bhx;
-    mag_msg.magnetic_field.y = Bhy;
-    mag_msg.magnetic_field.z = Bhz;
+    donut_msg.mpu.angular_velocity.x = Bgx;
+    donut_msg.mpu.angular_velocity.y = Bgy;
+    donut_msg.mpu.angular_velocity.z = Bgz;
+
+    donut_msg.mpu.magnetic_field.x = Bhx;
+    donut_msg.mpu.magnetic_field.y = Bhy;
+    donut_msg.mpu.magnetic_field.z = Bhz;
     toggleData = true;
   }
   else {
     toggleData = true;
-    imu_msg.header.seq++;
-    imu_msg.header.stamp = NowA;
-    
-    imu_msg.linear_acceleration.x = Aax;
-    imu_msg.linear_acceleration.y = Aay;
-    imu_msg.linear_acceleration.z = Aaz;
+    donut_msg.mpu.header.seq++;
+    donut_msg.mpu.header.stamp = NowA;
 
-    imu_msg.angular_velocity.x = Agx;
-    imu_msg.angular_velocity.y = Agy;
-    imu_msg.angular_velocity.z = Agz;
+    donut_msg.mpu.linear_acceleration.x = Aax;
+    donut_msg.mpu.linear_acceleration.y = Aay;
+    donut_msg.mpu.linear_acceleration.z = Aaz;
 
-    mag_msg.header.seq++;
-    mag_msg.header.stamp = imu_msg.header.stamp;
-    
-    mag_msg.magnetic_field.x = Ahx;
-    mag_msg.magnetic_field.y = Ahy;
-    mag_msg.magnetic_field.z = Ahz;
+    donut_msg.mpu.angular_velocity.x = Agx;
+    donut_msg.mpu.angular_velocity.y = Agy;
+    donut_msg.mpu.angular_velocity.z = Agz;
+
+    donut_msg.mpu.magnetic_field.x = Ahx;
+    donut_msg.mpu.magnetic_field.y = Ahy;
+    donut_msg.mpu.magnetic_field.z = Ahz;
     toggleData = false;
+    donut_msg.wheels.header.seq++;
+    donut_msg.wheels.header.stamp = nh.now();
+
+    cli();
+    pulsesRR = RevCounter.readCounter(0);
+    pulsesRL = RevCounter.readCounter(1);
+    pulsesFR = RevCounter.readCounter(2);
+    pulsesFL = RevCounter.readCounter(3);
+    sei();
+
+    donut_msg.wheels.rr = pulsesRR*pi;
+    donut_msg.wheels.rl = pulsesRL*pi;
+    donut_msg.wheels.fr = pulsesFR*pi;
+    donut_msg.wheels.fl = pulsesFL*pi;
   }
 }
 void buildSMessage(){
-  s.header.seq++;
-  s.header.stamp = nh.now();
-  s.quaternion.w = steering.GetValue(1,XL320::Address::PRESENT_POSITION);
-  s.quaternion.x = steering.GetValue(1,XL320::Address::PRESENT_LOAD);
+  donut_msg.dynamixel.header.seq++;
+  donut_msg.dynamixel.header.stamp = nh.now();
+  donut_msg.dynamixel.angle = steering.GetValue(1,XL320::Address::PRESENT_POSITION);
+  donut_msg.dynamixel.load = steering.GetValue(1,XL320::Address::PRESENT_LOAD);
 }
-void buildWMessage() {
-  w.header.seq++;
-  w.header.stamp = nh.now();
 
-  cli();
-  pulsesRR = RevCounter.readCounter(0);
-  pulsesRL = RevCounter.readCounter(1);
-  pulsesFR = RevCounter.readCounter(2); 
-  pulsesFL = RevCounter.readCounter(3);
-  sei();
 
-  w.quaternion.x = pulsesRR*pi;
-  w.quaternion.y = pulsesRL*pi; 
-  w.quaternion.z = pulsesFR*pi; 
-  w.quaternion.w = pulsesFL*pi;  
-}
-  
 void publishCallback() {
-  buildIMUMessage();
-  buildWMessage(); 
+  buildMessage();
 
-  steer.publish(&s);
-  wheels.publish(&w);
-  imupub.publish(&imu_msg);
-  magpub.publish(&mag_msg);
+  donutpub.publish(&donut_msg);
 }
 
 void initMessages() {
-  s.header.seq = 0;
-  w.header.seq = 0;
+  donut_msg.dynamixel.header.seq = 0;
+  donut_msg.wheels.header.seq = 0;
 
-  mag_msg.header.seq = 0;
-  mag_msg.header.frame_id = frame_id;
-
-  imu_msg.header.seq = 0;
-  imu_msg.header.frame_id = frame_id;
-
-  imu_msg.orientation_covariance[0] = -1;
+  donut_msg.mpu.header.seq = 0;
+  donut_msg.mpu.header.frame_id = frame_id;
 }
 
 volatile int dm_flag;
@@ -219,27 +193,24 @@ void getRate(){
   }
   if (sampleFrequency > 1000){
     sampleFrequency = 1000;
-    nh.loginfo("Teensy is capped at 1000hz, 1000hz is set"); 
+    nh.loginfo("Teensy is capped at 1000hz, 1000hz is set");
   }
   nh.loginfo("ROS parameters set");
 }
 
 void setup(){
   nh.initNode();
-  nh.advertise(imupub);
-  nh.advertise(magpub);
-  nh.advertise(wheels);
-  nh.advertise(steer);
+  nh.advertise(donutpub);
   nh.subscribe(driveSubscriber) ;
   while(!nh.connected()) {nh.spinOnce();}
   nh.loginfo("Connection established");
 
   getRate();
-  
-  RevCounter.begin();
-  
 
-  // start communication with IMU and 
+  RevCounter.begin();
+
+
+  // start communication with IMU and
   // set the accelerometer and gyro ranges.
   // ACCELEROMETER 2G 4G 8G 16G
   // GYRO 250DPS 500DPS 1000DPS 2000DPS
@@ -248,7 +219,7 @@ void setup(){
   pinMode(2,INPUT);
   attachInterrupt(2,IMUCallBack,RISING);
   nh.loginfo("IMU calibrated");
-  
+
   //Build all the required messages with required covariances and frame id's
   initMessages();
   nh.loginfo("Messages built");
@@ -265,12 +236,12 @@ void setup(){
   electronicSpeedController.writeMicroseconds(1500) ;
   nh.loginfo("vehicle control started");
   delay(1000);
-  
+
   dmTimer.priority(255);
   pubTimer.priority(140);
   dmTimer.begin(dmCom,100000);
   pubTimer.begin(publishCallback,(int)(1000000/sampleFrequency));
-  
+
   nh.loginfo("Publish timer initialized");
 }
 
@@ -290,6 +261,3 @@ void loop(){
     nh.loginfo("Publish timer Reset");
   }
 }
-
-
-

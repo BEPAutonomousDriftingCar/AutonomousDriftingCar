@@ -33,7 +33,7 @@ Servo electronicSpeedController;  // The ESC works like a Servo
 RevCounter RevCounter;
 const float pi = 3.14159265359;
 
-ros::NodeHandle_<ArduinoHardware, 6, 6, 4096*4, 4096*4> nh;
+ros::NodeHandle nh;
 int pulsesRL, pulsesRR, pulsesFL, pulsesFR;
 
 //initialize IMU message types and required strings
@@ -215,7 +215,7 @@ void setup(){
   // ACCELEROMETER 2G 4G 8G 16G
   // GYRO 250DPS 500DPS 1000DPS 2000DPS
   beginStatus = IMU.begin(ACCEL_RANGE_4G,GYRO_RANGE_250DPS);
-  IMU.setFilt(DLPF_BANDWIDTH_41HZ,9);
+  IMU.setFilt(DLPF_BANDWIDTH_5HZ,99);
   pinMode(2,INPUT);
   attachInterrupt(2,IMUCallBack,RISING);
   nh.loginfo("IMU calibrated");
